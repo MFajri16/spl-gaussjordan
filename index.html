@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gauss-Jordan Solver</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141614;
+    --surface2: #1b1e1b;
+    --border: #2a2e2a;
+    --accent: #4afa7a;
+    --accent-dim: #2a6640;
+    --text: #e2e8e2;
+    --muted: #6b7a6b;
+    --dim: #3a433a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+    --radius: 4px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 14px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    display: grid; place-items: center;
+    border-radius: var(--radius);
+    font-size: 11px; font-weight: 600;
+    color: #0d0f0e;
+    letter-spacing: -0.5px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 13px; font-weight: 500; color: var(--text); letter-spacing: 0.02em; }
+  header span { font-size: 11px; color: var(--muted); margin-left: 0.5rem; }
+
+  /* MAIN LAYOUT */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+  }
+
+  /* LEFT PANEL */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  input[type=number], select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+  }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input[type=number]:focus {
+    border-color: var(--accent);
+  }
+  input[type=number].err { border-color: #fa4a4a; }
+
+  /* MATRIX INPUT */
+  .matrix-wrap { overflow-x: auto; }
+  .matrix-table { border-collapse: separate; border-spacing: 4px; }
+  .matrix-table td { padding: 0; }
+  .matrix-table .cell { width: 58px; }
+  .matrix-table .sep-col { width: 20px; text-align: center; color: var(--muted); font-size: 16px; padding: 0 2px; }
+  .matrix-table input { width: 58px; text-align: center; padding: 6px 4px; }
+
+  .mat-bracket {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 4px;
+    color: var(--dim);
+    font-size: 22px;
+    font-weight: 300;
+    line-height: 1;
+    user-select: none;
+  }
+
+  /* VAR LABELS */
+  .var-labels {
+    display: flex;
+    gap: 4px;
+    padding-left: 32px;
+    margin-bottom: 2px;
+  }
+  .var-label {
+    width: 58px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+
+  /* ROW INDEX */
+  .row-idx {
+    width: 24px;
+    text-align: right;
+    font-size: 10px;
+    color: var(--muted);
+    padding-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* SOLVE BUTTON */
+  .btn-solve {
+    background: var(--accent);
+    color: #0d0f0e;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: opacity 0.15s, transform 0.1s;
+    width: 100%;
+  }
+  .btn-solve:hover { opacity: 0.85; }
+  .btn-solve:active { transform: scale(0.98); }
+
+  .btn-clear {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    width: 100%;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-clear:hover { border-color: var(--text); color: var(--text); }
+
+  .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* RIGHT PANEL */
+  .panel-right {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+  }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.75rem;
+  }
+  .output-header span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .dot.active { background: var(--accent); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .output-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--muted);
+  }
+  .output-empty .big { font-size: 11px; letter-spacing: 0.08em; }
+  .output-empty .small { font-size: 10px; color: var(--dim); }
+
+  /* LOG */
+  .log { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .log-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+  .step-header {
+    padding: 6px 12px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-num {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 600;
+  }
+  .step-desc { font-size: 12px; color: var(--text); }
+
+  .step-matrix {
+    padding: 10px 12px;
+    overflow-x: auto;
+  }
+  .step-matrix pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .step-matrix pre .hl { color: var(--text); }
+  .step-matrix pre .acc { color: var(--accent); }
+
+  /* SOLUTION BOX */
+  .solution-box {
+    background: var(--surface);
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: fadeIn 0.3s ease;
+  }
+  .solution-header {
+    background: var(--accent-dim);
+    padding: 8px 14px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .solution-body { padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .solution-var {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 80px;
+  }
+  .solution-var .vname { font-size: 10px; color: var(--muted); }
+  .solution-var .vval { font-size: 16px; font-weight: 600; color: var(--accent); }
+
+  .error-box {
+    background: var(--surface);
+    border: 1px solid #6a2020;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    color: #fa4a4a;
+    font-size: 12px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+  /* FOOTER */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    font-size: 10px;
+    color: var(--dim);
+    display: flex;
+    gap: 2rem;
+  }
+
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; }
+    .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">GJ</div>
+  <div>
+    <h1>Gauss-Jordan Solver <span>eliminasi sistem persamaan linear</span></h1>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT: INPUT -->
+  <div class="panel-left">
+    <div class="field-group">
+      <label class="field-label">Jumlah variabel (n)</label>
+      <select id="nvar" onchange="buildMatrix()">
+        <option value="2">n = 2</option>
+        <option value="3" selected>n = 3</option>
+        <option value="4">n = 4</option>
+        <option value="5">n = 5</option>
+        <option value="6">n = 6</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">Matriks A &amp; Vektor b</label>
+      <div class="var-labels" id="varLabels"></div>
+      <div class="matrix-wrap">
+        <table class="matrix-table" id="matTable"></table>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-solve" onclick="solve()">▶ Hitung</button>
+      <button class="btn-clear" onclick="clearAll()">Reset</button>
+    </div>
+
+    <div class="field-group" style="margin-top:auto;">
+      <label class="field-label">Contoh cepat</label>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        <button class="btn-clear" onclick="loadExample(0)" style="font-size:11px; padding:6px; text-align:left;">
+          3 variabel · 2x+y-z=8, -3x-y+2z=-11, -2x+y+2z=-3
+        </button>
+        <button class="btn-clear" onclick="loadExample(1)" style="font-size:11px; padding:6px; text-align:left;">
+          2 variabel · 3x+2y=7, x-y=1
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: OUTPUT -->
+  <div class="panel-right" id="panelRight">
+    <div class="output-header">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusLabel">menunggu input</span>
+    </div>
+    <div class="output-empty" id="emptyState">
+      <div class="big">— output kosong —</div>
+      <div class="small">isi matriks lalu klik Hitung</div>
+    </div>
+    <div class="log" id="logContainer" style="display:none;"></div>
+  </div>
+</main>
+
+<footer>
+  <span>Metode: Eliminasi Gauss-Jordan dengan Partial Pivoting</span>
+  <span>Kompleksitas: O(n³)</span>
+</footer>
+
+<script>
+const VARS = ['x','y','z','w','v','u'];
+function varName(i) { return i < VARS.length ? VARS[i] : `x${i+1}`; }
+
+const EXAMPLES = [
+  {
+    n: 3,
+    A: [[2,1,-1],[-3,-1,2],[-2,1,2]],
+    b: [8,-11,-3]
+  },
+  {
+    n: 2,
+    A: [[3,2],[1,-1]],
+    b: [7,1]
+  }
+];
+
+function buildMatrix() {
+  const n = parseInt(document.getElementById('nvar').value);
+
+  // var labels
+  const labelsEl = document.getElementById('varLabels');
+  labelsEl.style.paddingLeft = '32px';
+  let labHtml = '';
+  for (let j = 0; j < n; j++) labHtml += `<div class="var-label">${varName(j)}</div>`;
+  labHtml += `<div class="var-label" style="color:var(--muted);margin-left:24px;">b</div>`;
+  labelsEl.innerHTML = labHtml;
+
+  const tbl = document.getElementById('matTable');
+  tbl.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const tr = document.createElement('tr');
+    // row index
+    const tdIdx = document.createElement('td');
+    tdIdx.className = 'row-idx';
+    tdIdx.textContent = `R${i+1}`;
+    tr.appendChild(tdIdx);
+    // A cells
+    for (let j = 0; j < n; j++) {
+      const td = document.createElement('td');
+      td.className = 'cell';
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.step = 'any';
+      inp.id = `a${i}_${j}`; inp.placeholder = '0';
+      inp.setAttribute('autocomplete','off');
+      td.appendChild(inp);
+      tr.appendChild(td);
+    }
+    // separator |
+    const tdSep = document.createElement('td');
+    tdSep.className = 'sep-col';
+    tdSep.textContent = '|';
+    tr.appendChild(tdSep);
+    // b cell
+    const tdB = document.createElement('td');
+    tdB.className = 'cell';
+    const inpB = document.createElement('input');
+    inpB.type = 'number'; inpB.step = 'any';
+    inpB.id = `b${i}`; inpB.placeholder = '0';
+    inpB.setAttribute('autocomplete','off');
+    tdB.appendChild(inpB);
+    tr.appendChild(tdB);
+
+    tbl.appendChild(tr);
+  }
+}
+
+function setValues(n, A, b) {
+  document.getElementById('nvar').value = n;
+  buildMatrix();
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      document.getElementById(`a${i}_${j}`).value = A[i][j];
+    }
+    document.getElementById(`b${i}`).value = b[i];
+  }
+}
+
+function loadExample(idx) {
+  const ex = EXAMPLES[idx];
+  setValues(ex.n, ex.A, ex.b);
+  clearOutput();
+}
+
+function clearAll() {
+  buildMatrix();
+  clearOutput();
+}
+
+function clearOutput() {
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('logContainer').style.display = 'none';
+  document.getElementById('logContainer').innerHTML = '';
+  document.getElementById('statusDot').className = 'dot';
+  document.getElementById('statusLabel').textContent = 'menunggu input';
+}
+
+function fmtNum(v) {
+  if (Math.abs(v) < 1e-10) return '0';
+  const s = parseFloat(v.toPrecision(7)).toString();
+  return s;
+}
+
+function fmtCell(v, w=10) {
+  let s = fmtNum(v);
+  return s.padStart(w);
+}
+
+function matrixText(M, n, pivotRow, pivotCol) {
+  let lines = [];
+  for (let i = 0; i < n; i++) {
+    const cells = M[i].slice(0,n).map(v => fmtCell(v));
+    const bCell = fmtCell(M[i][n]);
+    lines.push({ cells, bCell, isRow: i });
+  }
+  return lines;
+}
+
+function renderMatrix(container, M, n, highlightRow, highlightCol) {
+  const pre = document.createElement('pre');
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    html += `R${i+1}  [`;
+    for (let j = 0; j < n; j++) {
+      const v = fmtCell(M[i][j]);
+      if (i === highlightRow || j === highlightCol) {
+        html += `<span class="${i===highlightRow?'acc':'hl'}">${v}</span>`;
+      } else {
+        html += v;
+      }
+      if (j < n-1) html += '  ';
+    }
+    html += `  |<span class="${i===highlightRow?'acc':'hl'}">${fmtCell(M[i][n])}</span>  ]\n`;
+  }
+  pre.innerHTML = html;
+  container.appendChild(pre);
+}
+
+function addStep(desc, M, n, hrRow, hrCol) {
+  const log = document.getElementById('logContainer');
+  const stepNum = log.querySelectorAll('.log-step').length + 1;
+  const div = document.createElement('div');
+  div.className = 'log-step';
+  div.innerHTML = `
+    <div class="step-header">
+      <span class="step-num">Langkah ${stepNum}</span>
+      <span class="step-desc">${desc}</span>
+    </div>
+    <div class="step-matrix" id="mat_${stepNum}"></div>
+  `;
+  log.appendChild(div);
+  renderMatrix(document.getElementById(`mat_${stepNum}`), M, n, hrRow, hrCol);
+}
+
+function deepCopy(M) { return M.map(r => [...r]); }
+
+function solve() {
+  clearOutput();
+  const n = parseInt(document.getElementById('nvar').value);
+  let A = [], b = [];
+  let valid = true;
+  for (let i = 0; i < n; i++) {
+    let row = [];
+    for (let j = 0; j < n; j++) {
+      const el = document.getElementById(`a${i}_${j}`);
+      const v = parseFloat(el.value);
+      if (isNaN(v)) { el.classList.add('err'); valid = false; } else { el.classList.remove('err'); row.push(v); }
+    }
+    const elB = document.getElementById(`b${i}`);
+    const bv = parseFloat(elB.value);
+    if (isNaN(bv)) { elB.classList.add('err'); valid = false; } else { elB.classList.remove('err'); b.push(bv); }
+    A.push(row);
+  }
+  if (!valid) {
+    showError('Semua sel harus diisi dengan angka.');
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('logContainer').style.display = 'flex';
+  document.getElementById('statusDot').className = 'dot active';
+  document.getElementById('statusLabel').textContent = 'memproses...';
+
+  let M = A.map((row,i) => [...row.map(v=>parseFloat(v)), parseFloat(b[i])]);
+
+  addStep('Matriks augmented awal [A|b]', deepCopy(M), n, -1, -1);
+
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let r = col+1; r < n; r++) if (Math.abs(M[r][col]) > Math.abs(M[maxRow][col])) maxRow = r;
+    if (Math.abs(M[maxRow][col]) < 1e-12) {
+      showError('Matriks singular — sistem tidak memiliki solusi unik.');
+      document.getElementById('statusDot').className = 'dot';
+      document.getElementById('statusLabel').textContent = 'error: singular';
+      return;
+    }
+    if (maxRow !== col) {
+      [M[col], M[maxRow]] = [M[maxRow], M[col]];
+      addStep(`Tukar R${col+1} ↔ R${maxRow+1}`, deepCopy(M), n, col, col);
+    }
+    const pivot = M[col][col];
+    if (Math.abs(pivot - 1) > 1e-12) {
+      M[col] = M[col].map(v => v / pivot);
+      addStep(`R${col+1} ÷ ${fmtNum(pivot)}`, deepCopy(M), n, col, col);
+    }
+    for (let row = 0; row < n; row++) {
+      if (row === col || Math.abs(M[row][col]) < 1e-12) continue;
+      const factor = M[row][col];
+      M[row] = M[row].map((v,j) => v - factor * M[col][j]);
+      addStep(`R${row+1} ← R${row+1} − (${fmtNum(factor)}) × R${col+1}`, deepCopy(M), n, row, col);
+    }
+  }
+
+  // Solusi
+  const solBox = document.createElement('div');
+  solBox.className = 'solution-box';
+  let bodyHtml = '';
+  for (let i = 0; i < n; i++) {
+    const val = M[i][n];
+    bodyHtml += `<div class="solution-var"><div class="vname">${varName(i)}</div><div class="vval">${fmtNum(val)}</div></div>`;
+  }
+  solBox.innerHTML = `<div class="solution-header">✓ Solusi</div><div class="solution-body">${bodyHtml}</div>`;
+  document.getElementById('logContainer').appendChild(solBox);
+
+  document.getElementById('statusDot').className = 'dot active';
+  document.getElementById('statusLabel').textContent = `selesai · ${n} variabel`;
+}
+
+function showError(msg) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('logContainer').style.display = 'flex';
+  const div = document.createElement('div');
+  div.className = 'error-box';
+  div.textContent = '✗ ' + msg;
+  document.getElementById('logContainer').appendChild(div);
+}
+
+buildMatrix();
+</script>
+</body>
+</html>
